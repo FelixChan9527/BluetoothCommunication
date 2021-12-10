@@ -9,6 +9,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -17,6 +18,7 @@ import android.widget.Toast;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.lang.ref.WeakReference;
@@ -78,7 +80,6 @@ public class MainActivity extends AppCompatActivity {
 
             }
         }).start();
-
     }
 
     //防止内存泄漏 正确的使用方法
@@ -107,7 +108,8 @@ public class MainActivity extends AppCompatActivity {
                     case CONN_SUCCESS:
                         setInfo("连接成功！\n");
                         send.setEnabled(true);
-                        new Thread(new ReceiverInfoThread()).start();
+                        ReceiveDataThread thread = new ReceiveDataThread();     // 启动接收数据线程
+                        thread.start();
                         break;
                     case CONN_FAIL:
                         setInfo("连接失败！\n");
@@ -120,24 +122,41 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private boolean isReceiver = true;
+/***********************这部分是接收信息的代码***************************************/
+public class ReceiveDataThread extends Thread{
 
-    class ReceiverInfoThread implements Runnable {
-        @Override
-        public void run() {
-            String info = null;
-            while (isReceiver) {
-                try {
-                    info = in.readLine();
-                    Message msg = handler.obtainMessage(RECEIVER_INFO, info);
-                    handler.sendMessage(msg);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+    private InputStream inputStream;
+
+    public ReceiveDataThread() {
+        super();
+        try {
+            //获取连接socket的输入流
+            inputStream = socket.getInputStream();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    @Override
+    public void run() {
+        super.run();
+        byte[] buffer = new byte[1];    // 协议字节多长，就定多长，一个十六进制数是1个字节
+        while (true){
+            try {
+                inputStream.read(buffer);
+/**********************在此填写通信协议****************************************/
+                int a = (buffer[0]);
+                System.out.println(a);
+//                if(a == 0x41)
+//                    System.out.println("pppppppppppppp");
+/**********************在此填写通信协议****************************************/
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
     }
+}
 
+/***********************这部分是发送信息的代码***************************************/
     public void send(View v) {
         final String content = server_send.getText().toString();
         if (TextUtils.isEmpty(content)) {
@@ -147,6 +166,7 @@ public class MainActivity extends AppCompatActivity {
         new Thread(new Runnable() {
             @Override
             public void run() {
+                System.out.println("发送消息");
                 out.println(content);
                 out.flush();
                 handler.sendEmptyMessage(SET_EDITTEXT_NULL);
